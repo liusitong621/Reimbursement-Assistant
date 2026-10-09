@@ -1,0 +1,80 @@
+# =============================================================
+# FP 报销信息整理识别系统 - .gitignore
+# =============================================================
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Build output
+dist/
+dist-ssr/
+build/
+.vite/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime / data (NEVER commit)
+storage/uploads/*
+storage/exports/*
+!storage/uploads/.gitkeep
+!storage/exports/.gitkeep
+prisma/migrations/dev.db*
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# Fonts (downloaded at install time via `npm run setup:fonts`)
+assets/fonts/SourceHanSansCN-*.otf
+public/fonts/CrimsonPro-*.ttf
+public/fonts/IBMPlexMono-*.ttf
+src/fonts/CrimsonPro-*.ttf
+src/fonts/IBMPlexMono-*.ttf
+
+# Release tarballs (attached to GitHub Releases, not tracked in git)
+releases/*.tar.gz
+releases/*.zip
+
+# Environment files (CRITICAL - contains secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
+
+# Coverage / test artifacts
+coverage/
+.nyc_output/
+*.lcov
+
+# Misc
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+.tmp/
+tmp/

@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  employee
+  leader
+  finance
+  admin
+}
+
+enum ReimbursementStatus {
+  draft
+  unfinished
+  pending_review
+  needs_revision
+  completed
+  reimbursed
+}
+
+enum InvoiceStatus {
+  none
+  not_issued
+  waiting_issued
+  issued
+}
+
+enum PaymentMode {
+  personal_reimbursement
+  reserve_fund
+}
+
+enum AmountStandard {
+  invoice
+  orders
+}
+
+enum AttachmentKind {
+  invoice
+  order
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  username            String               @unique
+  passwordHash        String
+  displayName         String
+  role                Role
+  reserveFundBalance  Float                @default(0)
+  reserveFundNotice   String               @default("")
+  createdAt           DateTime             @default(now())
+  reimbursements      Reimbursement[]
+  purchasedOrders     OrderItem[]          @relation("PurchaserOrders")
+  orderParticipants   OrderItemUser[]
+  reviewLogs          ReviewLog[]
+  reserveFundLogs     ReserveFundLog[]     @relation("ReserveFundTarget")
+  reserveFundActions  ReserveFundLog[]     @relation("ReserveFundOperator")
+  exportBatches       ExportBatch[]
+  createdCategories   ReimbursementCategory[] @relation("CategoryCreator")
+  apiKeys             ApiKey[]
+}
+
+model ReimbursementCategory {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdById   String
+  createdBy     User     @relation("CategoryCreator", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  reimbursements Reimbursement[]
+
+  @@index([isActive, sortOrder])
+}
+
+model Reimbursement {
+  id                        String                @id @default(cuid())
+  title                     String                @default("")
+  creatorId                 String
+  categoryId                String?
+  status                    ReimbursementStatus   @default(draft)
+  invoiceSellerName         String                @default("")
+  invoiceSellerTaxNo        String                @default("")
+  invoiceAmountExcludingTax Float                 @default(0)
+  invoiceTaxAmount          Float                 @default(0)
+  invoiceTaxRate            String                @default("")
+  invoiceTotalAmount        Float                 @default(0)
+  invoiceNumber             String                @default("")
+  invoiceStatus             InvoiceStatus         @default(none)
+  amountStandard            AmountStandard        @default(invoice)
+  amountMismatchNote        String                @default("")
+  rejectionReason           String                @default("")
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+  creator                   User                  @relation(fields: [creatorId], references: [id])
+  category                  ReimbursementCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orders                    OrderItem[]
+  attachments               Attachment[]
+  reviewLogs                ReviewLog[]
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([invoiceStatus])
+  @@index([createdAt])
+  @@index([categoryId])
+}
+
+model OrderItem {
+  id               String           @id @default(cuid())
+  reimbursementId  String
+  sequence         Int
+  platformCategory String           @default("")
+  platformName     String           @default("")
+  merchantName     String           @default("")
+  itemDescription  String           @default("")
+  orderNumber      String           @default("")
+  paymentTime      String           @default("")
+  paymentAmount    Float            @default(0)
+  orderStatus      String           @default("")
+  note             String           @default("")
+  purchaserId      String?
+  paymentMode      PaymentMode      @default(personal_reimbursement)
+  isParentOrder    Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  reimbursement    Reimbursement    @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
+  purchaser        User?            @relation("PurchaserOrders", fields: [purchaserId], references: [id], onDelete: SetNull)
+  participants     OrderItemUser[]
+  attachments      Attachment[]
+
+  @@index([reimbursementId])
+  @@index([paymentMode])
+}
+
+model OrderItemUser {
+  id          String    @id @default(cuid())
+  orderItemId String
+  userId      String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orderItemId, userId])
+  @@index([userId])
+}
+
+model Attachment {
+  id               String          @id @default(cuid())
+  reimbursementId  String?
+  orderItemId      String?
+  kind             AttachmentKind
+  fileName         String
+  filePath         String
+  mimeType         String          @default("")
+  sortOrder        Int             @default(0)
+  createdAt        DateTime        @default(now())
+  reimbursement    Reimbursement?  @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
+  orderItem        OrderItem?      @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([reimbursementId])
+  @@index([orderItemId])
+}
+
+model ReviewLog {
+  id              String                @id @default(cuid())
+  reimbursementId String
+  operatorId      String
+  action          String
+  reason          String                @default("")
+  fromStatus      ReimbursementStatus?
+  toStatus        ReimbursementStatus?
+  createdAt       DateTime              @default(now())
+  reimbursement   Reimbursement         @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
+  operator        User                  @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@index([reimbursementId])
+  @@index([operatorId])
+}
+
+model ReserveFundLog {
+  id            String   @id @default(cuid())
+  targetUserId  String
+  operatorId    String
+  deltaAmount   Float
+  note          String   @default("")
+  createdAt     DateTime @default(now())
+  targetUser    User     @relation("ReserveFundTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  operator      User     @relation("ReserveFundOperator", fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@index([targetUserId])
+}
+
+model ExportBatch {
+  id           String   @id @default(cuid())
+  exportedById String
+  filtersJson  String
+  columnsJson  String   @default("")
+  filePath     String
+  recordCount  Int      @default(0)
+  createdAt    DateTime @default(now())
+  exportedBy   User     @relation(fields: [exportedById], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model Session {
+  sid       String   @id
+  data      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+// 4.1.0: Agent API 接入 —— API Key 权限与所属账号完全相等（同一套角色检查）
+model ApiKey {
+  id              String    @id @default(cuid())
+  name            String
+  keyHash         String    @unique
+  prefix          String
+  userId          String
+  rateLimitPerMin Int       @default(120)
+  lastUsedAt      DateTime?
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// 4.1.0: API 调用审计（仅 API Key 请求记录；网页 session 不记）
+model ApiAuditLog {
+  id          String   @id @default(cuid())
+  keyId       String?
+  keyName     String   @default("")
+  userId      String?
+  method      String
+  path        String
+  status      Int
+  durationMs  Int      @default(0)
+  ip          String   @default("")
+  bodySummary String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@index([keyId])
+  @@index([createdAt])
+}
